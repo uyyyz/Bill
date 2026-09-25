@@ -21,6 +21,7 @@ export type LedgerEntry = {
   note: string;
   created_at: string;
   updated_at: string;
+  photo_count: number;
 };
 
 export type Totals = { income_cents: number; expense_cents: number };
@@ -51,10 +52,9 @@ async function seedCategories(db: SQLiteDatabase) {
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   const version = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((version?.user_version ?? 0) >= 1) return;
-
-  await db.withExclusiveTransactionAsync(async (tx) => {
-    await tx.execAsync(`
+  if ((version?.user_version ?? 0) < 1) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.execAsync(`
       CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY NOT NULL,
         name TEXT NOT NULL,
@@ -76,10 +76,24 @@ export async function migrateDatabase(db: SQLiteDatabase) {
       );
       CREATE INDEX IF NOT EXISTS transactions_date_idx ON transactions(entry_date);
       CREATE INDEX IF NOT EXISTS transactions_category_idx ON transactions(category_id);
-    `);
-    await seedCategories(tx);
-    await tx.execAsync('PRAGMA user_version = 1');
-  });
+      `);
+      await seedCategories(tx);
+      await tx.execAsync('PRAGMA user_version = 1');
+    });
+  }
+  if ((version?.user_version ?? 0) < 2) {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      await tx.execAsync(`
+        CREATE TABLE IF NOT EXISTS entry_photos (
+          file_name TEXT PRIMARY KEY NOT NULL,
+          entry_id TEXT NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+          sort_order INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS entry_photos_entry_idx ON entry_photos(entry_id, sort_order);
+        PRAGMA user_version = 2;
+      `);
+    });
+  }
 }
 
 export async function listCategories(db: SQLiteDatabase, type?: EntryType, includeInactive = false) {
@@ -131,7 +145,7 @@ export async function moveCategory(db: SQLiteDatabase, categoryId: string, direc
 
 export async function listEntriesByDate(db: SQLiteDatabase, date: string) {
   return db.getAllAsync<LedgerEntry>(`
-    SELECT t.*, c.name AS category_name
+    SELECT t.*, c.name AS category_name, (SELECT COUNT(*) FROM entry_photos p WHERE p.entry_id = t.id) AS photo_count
     FROM transactions t JOIN categories c ON c.id = t.category_id
     WHERE t.entry_date = ?
     ORDER BY t.created_at DESC, t.id DESC
@@ -140,27 +154,43 @@ export async function listEntriesByDate(db: SQLiteDatabase, date: string) {
 
 export async function getEntry(db: SQLiteDatabase, entryId: string) {
   return db.getFirstAsync<LedgerEntry>(`
-    SELECT t.*, c.name AS category_name
+    SELECT t.*, c.name AS category_name, (SELECT COUNT(*) FROM entry_photos p WHERE p.entry_id = t.id) AS photo_count
     FROM transactions t JOIN categories c ON c.id = t.category_id
     WHERE t.id = ?
   `, entryId);
 }
 
-export async function saveEntry(db: SQLiteDatabase, entry: { id?: string; type: EntryType; amount_cents: number; entry_date: string; category_id: string; note: string }) {
+export async function listEntryPhotos(db: SQLiteDatabase, entryId: string) {
+  const rows = await db.getAllAsync<{ file_name: string }>('SELECT file_name FROM entry_photos WHERE entry_id = ? ORDER BY sort_order', entryId);
+  return rows.map((row) => row.file_name);
+}
+
+export async function saveEntry(db: SQLiteDatabase, entry: { id?: string; type: EntryType; amount_cents: number; entry_date: string; category_id: string; note: string; photos?: string[] }) {
   if (!Number.isSafeInteger(entry.amount_cents) || entry.amount_cents <= 0) throw new Error('金额必须大于 0');
   if (!isValidDate(entry.entry_date)) throw new Error('请输入有效日期');
   const category = await db.getFirstAsync<Category>('SELECT * FROM categories WHERE id = ?', entry.category_id);
   if (!category || category.type !== entry.type) throw new Error('请选择对应类型的分类');
   if (!category.is_active && !entry.id) throw new Error('该分类已停用，请选择其他分类');
+  if (entry.photos && (entry.photos.length > 5 || new Set(entry.photos).size !== entry.photos.length || entry.photos.some((name) => !/^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|heic|heif|webp|avif|gif)$/.test(name)))) throw new Error('照片附件无效或超过 5 张');
   const now = new Date().toISOString();
+  const entryId = entry.id ?? id();
   if (entry.id) {
     const prior = await getEntry(db, entry.id);
     if (!prior) throw new Error('记录不存在');
     if (!category.is_active && category.id !== prior.category_id) throw new Error('该分类已停用，请选择其他分类');
-    await db.runAsync('UPDATE transactions SET type = ?, amount_cents = ?, entry_date = ?, category_id = ?, note = ?, updated_at = ? WHERE id = ?', entry.type, entry.amount_cents, entry.entry_date, entry.category_id, entry.note.trim(), now, entry.id);
-  } else {
-    await db.runAsync('INSERT INTO transactions (id, type, amount_cents, entry_date, category_id, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id(), entry.type, entry.amount_cents, entry.entry_date, entry.category_id, entry.note.trim(), now, now);
   }
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    if (entry.id) {
+      await tx.runAsync('UPDATE transactions SET type = ?, amount_cents = ?, entry_date = ?, category_id = ?, note = ?, updated_at = ? WHERE id = ?', entry.type, entry.amount_cents, entry.entry_date, entry.category_id, entry.note.trim(), now, entryId);
+    } else {
+      await tx.runAsync('INSERT INTO transactions (id, type, amount_cents, entry_date, category_id, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', entryId, entry.type, entry.amount_cents, entry.entry_date, entry.category_id, entry.note.trim(), now, now);
+    }
+    if (entry.photos) {
+      await tx.runAsync('DELETE FROM entry_photos WHERE entry_id = ?', entryId);
+      for (const [index, name] of entry.photos.entries()) await tx.runAsync('INSERT INTO entry_photos (file_name, entry_id, sort_order) VALUES (?, ?, ?)', name, entryId, index);
+    }
+  });
+  return entryId;
 }
 
 export async function deleteEntry(db: SQLiteDatabase, entryId: string) {

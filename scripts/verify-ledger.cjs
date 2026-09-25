@@ -47,6 +47,10 @@ async function totals(from, to, income, expense) {
 async function main() {
   await ledger.migrateDatabase(db);
   await ledger.migrateDatabase(db);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 2);
+  sqlite.exec('DROP TABLE entry_photos; PRAGMA user_version = 1');
+  await ledger.migrateDatabase(db);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 2, 'old ledgers must migrate');
   assert.equal((await ledger.listCategories(db)).length, 18, 'defaults must not duplicate');
   const categories = await ledger.listCategories(db);
   const categoryId = (type, name) => categories.find((item) => item.type === type && item.name === name).id;
@@ -94,12 +98,21 @@ async function main() {
   await ledger.setCategoryActive(db, taxiId, true);
 
   const taxiEntry = (await ledger.listEntriesByDate(db, '2026-09-03'))[0];
+  await ledger.saveEntry(db, { id: taxiEntry.id, type: 'expense', amount_cents: 2000, entry_date: '2026-09-03', category_id: taxiId, note: '', photos: ['loan.jpg', 'transfer.png'] });
+  assert.deepEqual(await ledger.listEntryPhotos(db, taxiEntry.id), ['loan.jpg', 'transfer.png']);
+  assert.equal((await ledger.getEntry(db, taxiEntry.id)).photo_count, 2);
+  await assert.rejects(() => ledger.saveEntry(db, { id: taxiEntry.id, type: 'expense', amount_cents: 2000, entry_date: '2026-09-03', category_id: taxiId, note: '', photos: ['../outside.jpg'] }), /照片附件无效/);
+  assert.deepEqual(await ledger.listEntryPhotos(db, taxiEntry.id), ['loan.jpg', 'transfer.png']);
+  await ledger.saveEntry(db, { id: taxiEntry.id, type: 'expense', amount_cents: 2000, entry_date: '2026-09-03', category_id: taxiId, note: '', photos: ['transfer.png'] });
+  assert.deepEqual(await ledger.listEntryPhotos(db, taxiEntry.id), ['transfer.png']);
   await ledger.saveEntry(db, { id: taxiEntry.id, type: 'expense', amount_cents: 2000, entry_date: '2026-09-03', category_id: taxiId, note: '' });
+  assert.deepEqual(await ledger.listEntryPhotos(db, taxiEntry.id), ['transfer.png'], 'edits without a photo list keep existing attachments');
   await totals('2026-09-01', '2026-10-01', 100000, 25000);
   await ledger.deleteEntry(db, taxiEntry.id);
+  assert.deepEqual(await ledger.listEntryPhotos(db, taxiEntry.id), [], 'deleting an entry must unlink its photos');
   await totals('2026-09-01', '2026-10-01', 100000, 23000);
 
-  await ledger.saveEntry(db, { type: 'expense', amount_cents: 100, entry_date: '2027-01-01', category_id: categoryId('expense', '吃喝'), note: '' });
+  await ledger.saveEntry(db, { type: 'expense', amount_cents: 100, entry_date: '2027-01-01', category_id: categoryId('expense', '吃喝'), note: '', photos: ['archive.jpg'] });
   const crossYearTrend = await ledger.getCategoryDailyExpenses(db, categoryId('expense', '吃喝'), '2027-01-01');
   assert.deepEqual(crossYearTrend[29], { date: '2027-01-01', amount_cents: 100 });
   await totals('2026-01-01', '2027-01-01', 150000, 28000);
@@ -112,6 +125,7 @@ async function main() {
 
   await ledger.addCategory(db, 'expense', '测试分类');
   await ledger.clearAllData(db);
+  assert.equal((await db.getFirstAsync('SELECT COUNT(*) AS count FROM entry_photos')).count, 0);
   await totals('2026-01-01', '2028-01-01', 0, 0);
   const resetCategories = await ledger.listCategories(db, undefined, true);
   assert.equal(resetCategories.length, 18);

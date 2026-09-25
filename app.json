@@ -36,7 +36,15 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许牢大账本选取照片，作为记账档案保存在本机",
+          "cameraPermission": "允许牢大账本拍照，作为记账档案保存在本机",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

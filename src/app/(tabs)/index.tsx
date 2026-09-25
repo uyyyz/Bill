@@ -65,6 +65,7 @@ export default function LedgerScreen() {
               <View style={styles.entryDetail}>
                 <Text style={styles.entryName} numberOfLines={1}>{entry.category_name}</Text>
                 {entry.note ? <Text style={styles.entryNote} numberOfLines={1}>{entry.note}</Text> : null}
+                {entry.photo_count > 0 && <Text style={styles.entryNote}>照片 {entry.photo_count} 张</Text>}
               </View>
               <Text style={[styles.entryAmount, { color: entry.type === 'income' ? palette.primary : palette.expense }]}>{entry.type === 'income' ? '+' : '−'}{formatMoney(entry.amount_cents)}</Text>
             </Pressable>)}

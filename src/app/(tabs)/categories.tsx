@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View 
 import { Page, PageHeading } from '@/components/ledger-ui';
 import { palette } from '@/constants/ledger-theme';
 import { addCategory, Category, clearAllData, EntryType, listCategories, moveCategory, renameCategory, setCategoryActive } from '@/data/ledger';
+import { removeAllPhotoFiles } from '@/data/photo-files';
 
 export default function CategoriesScreen() {
   const db = useSQLiteContext();
@@ -52,11 +53,17 @@ export default function CategoriesScreen() {
   }
 
   function confirmClear() {
-    Alert.alert('清空全部数据？', '所有收支记录和自定义分类设置都会删除，默认分类会恢复。', [
+    Alert.alert('清空全部数据？', '所有收支记录、照片档案和自定义分类设置都会删除，默认分类会恢复。', [
       { text: '取消', style: 'cancel' },
       { text: '继续', style: 'destructive', onPress: () => Alert.alert('最后确认', '此操作不可撤销。确定清空全部数据吗？', [
         { text: '取消', style: 'cancel' },
-        { text: '确定清空', style: 'destructive', onPress: () => { void perform(async () => { await clearAllData(db); setSelectedId(''); Alert.alert('已清空', '收支记录已删除，默认分类已恢复。'); }); } },
+        { text: '确定清空', style: 'destructive', onPress: () => { void perform(async () => {
+          await clearAllData(db);
+          setSelectedId('');
+          try { removeAllPhotoFiles(); }
+          catch { Alert.alert('账本已清空', '照片文件未能清理，请再次使用“清空全部数据”重试。'); return; }
+          Alert.alert('已清空', '收支记录和照片档案已删除，默认分类已恢复。');
+        }); } },
       ]) },
     ]);
   }
