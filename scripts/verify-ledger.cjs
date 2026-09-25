@@ -77,6 +77,10 @@ async function main() {
   assert.deepEqual(foodTrend[0], { date: '2026-09-01', amount_cents: 0 });
   assert.deepEqual(foodTrend[1], { date: '2026-09-02', amount_cents: 3000 });
   assert.deepEqual(foodTrend[29], { date: '2026-09-30', amount_cents: 0 });
+  const incomeTrend = await ledger.getCategoryDailyTotals(db, 'income', categoryId('income', '工资'), '2026-09-30');
+  assert.equal(incomeTrend.length, 30);
+  assert.deepEqual(incomeTrend[0], { date: '2026-09-01', amount_cents: 100000 });
+  assert.equal(incomeTrend.slice(1).reduce((sum, day) => sum + day.amount_cents, 0), 0);
   const months = await ledger.getYearMonths(db, 2026);
   assert.equal(months.length, 12);
   assert.deepEqual(months[8], { month: '2026-09', income_cents: 100000, expense_cents: 24500 });

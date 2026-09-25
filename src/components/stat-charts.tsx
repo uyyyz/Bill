@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
 
 import { palette } from '@/constants/ledger-theme';
-import { CategoryTotal, DailyTotal, formatMoney } from '@/data/ledger';
+import { CategoryTotal, DailyTotal, EntryType, formatMoney } from '@/data/ledger';
 
 const incomeColors = ['#276B54', '#64A481', '#A4C8A9', '#8B9F56', '#B7C67D', '#4B8D88'];
 const expenseColors = ['#B5634D', '#D99272', '#E7B96E', '#9D704F', '#C67D94', '#7F89B0', '#78986A', '#BD9A72', '#AA79A4', '#609BA3', '#A9B45E', '#D38E8B', '#788E79'];
@@ -49,7 +49,7 @@ export function CategoryPieChart({ items, total, type, onSelect }: {
             {onSelect && <Text style={styles.chevron}>›</Text>}
           </>;
           return onSelect ? (
-            <Pressable key={item.category_id} accessibilityRole="button" accessibilityLabel={`查看${item.category_name}近30天支出`} onPress={() => onSelect(item)} style={styles.legendRow}>{content}</Pressable>
+            <Pressable key={item.category_id} accessibilityRole="button" accessibilityLabel={`查看${item.category_name}近30天${type === 'income' ? '收入' : '支出'}`} onPress={() => onSelect(item)} style={styles.legendRow}>{content}</Pressable>
           ) : <View key={item.category_id} style={styles.legendRow}>{content}</View>;
         })}
       </View>
@@ -57,7 +57,8 @@ export function CategoryPieChart({ items, total, type, onSelect }: {
   );
 }
 
-export function ExpenseTrendChart({ days }: { days: DailyTotal[] }) {
+export function CategoryTrendChart({ days, type }: { days: DailyTotal[]; type: EntryType }) {
+  const lineColor = type === 'income' ? palette.primary : palette.expense;
   const max = Math.max(0, ...days.map((day) => day.amount_cents));
   const scale = Math.max(max, 1);
   const points = days.map((day, index) => ({
@@ -74,19 +75,19 @@ export function ExpenseTrendChart({ days }: { days: DailyTotal[] }) {
         <View><Text style={styles.trendLabel}>单日最高</Text><Text style={styles.trendValue}>{formatMoney(max)}</Text></View>
       </View>
       <Text style={styles.axisLabel}>最高 {formatMoney(max)}</Text>
-      <Svg width="100%" height={176} viewBox="0 0 300 156" accessibilityLabel="近30天每日支出折线图">
+      <Svg width="100%" height={176} viewBox="0 0 300 156" accessibilityLabel={`近30天每日${type === 'income' ? '收入' : '支出'}折线图`}>
         <Line x1={8} y1={14} x2={292} y2={14} stroke={palette.line} strokeWidth={1} />
         <Line x1={8} y1={78} x2={292} y2={78} stroke={palette.line} strokeWidth={1} />
         <Line x1={8} y1={142} x2={292} y2={142} stroke={palette.line} strokeWidth={1} />
-        <Polyline points={points.map((point) => `${point.x},${point.y}`).join(' ')} fill="none" stroke={palette.expense} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-        {points.filter((point) => point.amount > 0).map((point, index) => <Circle key={index} cx={point.x} cy={point.y} r={3.5} fill={palette.expense} />)}
+        <Polyline points={points.map((point) => `${point.x},${point.y}`).join(' ')} fill="none" stroke={lineColor} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+        {points.filter((point) => point.amount > 0).map((point, index) => <Circle key={index} cx={point.x} cy={point.y} r={3.5} fill={lineColor} />)}
       </Svg>
       <View style={styles.dateAxis}>
         <Text style={styles.axisLabel}>{days[0]?.date.slice(5)}</Text>
         <Text style={styles.axisLabel}>{days[14]?.date.slice(5)}</Text>
         <Text style={styles.axisLabel}>{days[29]?.date.slice(5)}</Text>
       </View>
-      {max === 0 && <Text style={styles.emptyText}>这30天没有该分类的支出</Text>}
+      {max === 0 && <Text style={styles.emptyText}>这30天没有该分类的{type === 'income' ? '收入' : '支出'}</Text>}
     </View>
   );
 }

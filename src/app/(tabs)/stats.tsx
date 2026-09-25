@@ -4,9 +4,10 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState, Page, PageHeading } from '@/components/ledger-ui';
-import { CategoryPieChart, ExpenseTrendChart } from '@/components/stat-charts';
+import { PeriodPicker } from '@/components/period-picker';
+import { CategoryPieChart, CategoryTrendChart } from '@/components/stat-charts';
 import { palette } from '@/constants/ledger-theme';
-import { addDays, CategoryTotal, DailyTotal, formatMoney, getCategoryDailyExpenses, getCategoryTotals, getTotals, getYearMonths, MonthTotal, today, Totals } from '@/data/ledger';
+import { addDays, CategoryTotal, DailyTotal, EntryType, formatMoney, getCategoryDailyTotals, getCategoryTotals, getTotals, getYearMonths, MonthTotal, today, Totals } from '@/data/ledger';
 
 type Mode = 'month' | 'year';
 type CategoryView = 'bars' | 'pie';
@@ -24,7 +25,8 @@ export default function StatsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [categoryView, setCategoryView] = useState<CategoryView>('bars');
-  const [selectedTrend, setSelectedTrend] = useState<{ category: CategoryTotal; endDate: string } | null>(null);
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  const [selectedTrend, setSelectedTrend] = useState<{ category: CategoryTotal; type: EntryType; endDate: string } | null>(null);
   const [trendDays, setTrendDays] = useState<DailyTotal[]>([]);
   const [trendLoading, setTrendLoading] = useState(false);
   const [trendError, setTrendError] = useState('');
@@ -54,24 +56,30 @@ export default function StatsScreen() {
     setMonth(date.getMonth() + 1);
   }
 
-  function openExpenseTrend(category: CategoryTotal) {
+  function openCategoryTrend(category: CategoryTotal, type: EntryType) {
     const last = new Date(year, month, 0);
     const lastDate = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}-${String(last.getDate()).padStart(2, '0')}`;
     const current = today();
     const endDate = current.startsWith(`${year}-${String(month).padStart(2, '0')}-`) ? current : lastDate;
     const request = ++trendRequest.current;
-    setSelectedTrend({ category, endDate });
+    setSelectedTrend({ category, type, endDate });
     setTrendDays([]);
     setTrendLoading(true);
     setTrendError('');
-    getCategoryDailyExpenses(db, category.category_id, endDate)
+    getCategoryDailyTotals(db, type, category.category_id, endDate)
       .then((days) => { if (trendRequest.current === request) { setTrendDays(days); setTrendLoading(false); } })
       .catch(() => { if (trendRequest.current === request) { setTrendError('趋势读取失败，请重试'); setTrendLoading(false); } });
   }
 
-  function closeExpenseTrend() {
+  function closeCategoryTrend() {
     trendRequest.current += 1;
     setSelectedTrend(null);
+  }
+
+  function selectPeriod(selectedYear: number, selectedMonth?: number) {
+    setYear(selectedYear);
+    if (selectedMonth !== undefined) setMonth(selectedMonth);
+    setPeriodPickerOpen(false);
   }
 
   const hasData = totals.income_cents > 0 || totals.expense_cents > 0;
@@ -85,7 +93,7 @@ export default function StatsScreen() {
       </View>
       <View style={styles.periodRow}>
         <Pressable accessibilityRole="button" onPress={() => shift(-1)} style={styles.periodButton}><Text style={styles.periodArrow}>‹</Text></Pressable>
-        <Text style={styles.periodText}>{year}年{mode === 'month' ? `${month}月` : ''}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`选择${mode === 'month' ? '月份' : '年份'}，当前${year}年${mode === 'month' ? `${month}月` : ''}`} onPress={() => setPeriodPickerOpen(true)} style={styles.periodTrigger}><Text style={styles.periodText}>{year}年{mode === 'month' ? `${month}月` : ''}  ▾</Text></Pressable>
         <Pressable accessibilityRole="button" onPress={() => shift(1)} style={styles.periodButton}><Text style={styles.periodArrow}>›</Text></Pressable>
       </View>
       {loading ? <ActivityIndicator color={palette.primary} /> : error ? <Text style={styles.error}>{error}</Text> : <>
@@ -111,21 +119,19 @@ export default function StatsScreen() {
             <View key={type} style={styles.card}>
               <View style={styles.cardTitleRow}><Text style={styles.cardTitle}>{title}</Text><Text style={styles.cardTotal}>{formatMoney(total)}</Text></View>
               {items.length === 0 ? <Text style={styles.emptyText}>本月暂无{type === 'income' ? '收入' : '支出'}</Text> : categoryView === 'pie' ?
-                <CategoryPieChart items={items} total={total} type={type} onSelect={type === 'expense' ? openExpenseTrend : undefined} /> :
+                <CategoryPieChart items={items} total={total} type={type} onSelect={(item) => openCategoryTrend(item, type)} /> :
                 items.map((item) => {
                   const fraction = item.amount_cents / total;
                   const content = <>
                     <View style={styles.rowTop}>
                       <Text style={styles.rowLabel} numberOfLines={1}>{item.category_name}</Text>
-                      <Text style={styles.rowValue}>{formatMoney(item.amount_cents)} · {(fraction * 100).toFixed(1)}%{type === 'expense' ? '  ›' : ''}</Text>
+                      <Text style={styles.rowValue}>{formatMoney(item.amount_cents)} · {(fraction * 100).toFixed(1)}%  ›</Text>
                     </View>
                     <View style={styles.track}><View style={[type === 'income' ? styles.incomeFill : styles.expenseFill, { width: `${Math.max(1, fraction * 100)}%` }]} /></View>
                   </>;
-                  return type === 'expense' ?
-                    <Pressable key={item.category_id} accessibilityRole="button" accessibilityLabel={`查看${item.category_name}近30天支出`} onPress={() => openExpenseTrend(item)} style={styles.categoryRow}>{content}</Pressable> :
-                    <View key={item.category_id} style={styles.categoryRow}>{content}</View>;
+                  return <Pressable key={item.category_id} accessibilityRole="button" accessibilityLabel={`查看${item.category_name}近30天${type === 'income' ? '收入' : '支出'}`} onPress={() => openCategoryTrend(item, type)} style={styles.categoryRow}>{content}</Pressable>;
                 })}
-              {type === 'expense' && items.length > 0 && <Text style={styles.categoryHint}>点击支出分类，查看近30天的每日开销</Text>}
+              {items.length > 0 && <Text style={styles.categoryHint}>点击{type === 'income' ? '收入' : '支出'}分类，查看近30天的每日{type === 'income' ? '收入' : '开销'}</Text>}
             </View>
           ))}
         </> : !hasData ? <View style={styles.card}><EmptyState symbol="≡" title="这一期暂无记录" description="记下收支后，这里会显示真实统计。" /></View> :
@@ -140,15 +146,16 @@ export default function StatsScreen() {
             </View>)}
           </View>}
       </>}
-      <Modal visible={selectedTrend !== null} transparent animationType="fade" onRequestClose={closeExpenseTrend}>
+      {periodPickerOpen && <PeriodPicker mode={mode} year={year} month={month} onSelect={selectPeriod} onClose={() => setPeriodPickerOpen(false)} />}
+      <Modal visible={selectedTrend !== null} transparent animationType="fade" onRequestClose={closeCategoryTrend}>
         <View style={styles.modalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={closeExpenseTrend} accessibilityLabel="关闭趋势图" />
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeCategoryTrend} accessibilityLabel="关闭趋势图" />
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <View style={styles.modalHeading}><Text style={styles.modalTitle}>{selectedTrend?.category.category_name} · 近30天支出</Text><Text style={styles.modalRange}>{selectedTrend ? `${addDays(selectedTrend.endDate, -29)} 至 ${selectedTrend.endDate}` : ''}</Text></View>
-              <Pressable accessibilityRole="button" accessibilityLabel="关闭趋势图" onPress={closeExpenseTrend} style={styles.modalClose}><Text style={styles.modalCloseText}>×</Text></Pressable>
+              <View style={styles.modalHeading}><Text style={styles.modalTitle}>{selectedTrend?.category.category_name} · 近30天{selectedTrend?.type === 'income' ? '收入' : '支出'}</Text><Text style={styles.modalRange}>{selectedTrend ? `${addDays(selectedTrend.endDate, -29)} 至 ${selectedTrend.endDate}` : ''}</Text></View>
+              <Pressable accessibilityRole="button" accessibilityLabel="关闭趋势图" onPress={closeCategoryTrend} style={styles.modalClose}><Text style={styles.modalCloseText}>×</Text></Pressable>
             </View>
-            {trendLoading ? <ActivityIndicator color={palette.expense} /> : trendError ? <Text style={styles.error}>{trendError}</Text> : <ExpenseTrendChart days={trendDays} />}
+            {trendLoading ? <ActivityIndicator color={selectedTrend?.type === 'income' ? palette.primary : palette.expense} /> : trendError ? <Text style={styles.error}>{trendError}</Text> : selectedTrend && <CategoryTrendChart days={trendDays} type={selectedTrend.type} />}
           </View>
         </View>
       </Modal>
@@ -164,6 +171,7 @@ const styles = StyleSheet.create({
   switchTextActive: { color: palette.primary },
   periodRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   periodButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  periodTrigger: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   periodArrow: { color: palette.primary, fontSize: 26, fontWeight: '700' },
   periodText: { color: palette.ink, fontSize: 18, fontWeight: '700' },
   summary: { backgroundColor: palette.primary, borderRadius: 22, padding: 24, gap: 12 },

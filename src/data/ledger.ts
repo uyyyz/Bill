@@ -190,21 +190,25 @@ export function getExpenseCategories(db: SQLiteDatabase, from: string, to: strin
   return getCategoryTotals(db, 'expense', from, to);
 }
 
-export async function getCategoryDailyExpenses(db: SQLiteDatabase, categoryId: string, endDate: string): Promise<DailyTotal[]> {
+export async function getCategoryDailyTotals(db: SQLiteDatabase, type: EntryType, categoryId: string, endDate: string): Promise<DailyTotal[]> {
   if (!isValidDate(endDate)) throw new Error('请输入有效日期');
   const from = addDays(endDate, -29);
   const to = addDays(endDate, 1);
   const rows = await db.getAllAsync<{ entry_date: string; amount_cents: number }>(`
     SELECT entry_date, SUM(amount_cents) AS amount_cents
     FROM transactions
-    WHERE type = 'expense' AND category_id = ? AND entry_date >= ? AND entry_date < ?
+    WHERE type = ? AND category_id = ? AND entry_date >= ? AND entry_date < ?
     GROUP BY entry_date
-  `, categoryId, from, to);
+  `, type, categoryId, from, to);
   const byDate = new Map(rows.map((row) => [row.entry_date, row.amount_cents]));
   return Array.from({ length: 30 }, (_, index) => {
     const date = addDays(from, index);
     return { date, amount_cents: byDate.get(date) ?? 0 };
   });
+}
+
+export function getCategoryDailyExpenses(db: SQLiteDatabase, categoryId: string, endDate: string) {
+  return getCategoryDailyTotals(db, 'expense', categoryId, endDate);
 }
 
 export async function getYearMonths(db: SQLiteDatabase, year: number): Promise<MonthTotal[]> {
