@@ -25,6 +25,7 @@ export type LedgerEntry = {
 
 export type Totals = { income_cents: number; expense_cents: number };
 export type CategoryTotal = { category_id: string; category_name: string; amount_cents: number };
+export type DailyTotal = { date: string; amount_cents: number };
 export type MonthTotal = { month: string; income_cents: number; expense_cents: number };
 
 const defaults: { type: EntryType; names: string[] }[] = [
@@ -176,13 +177,34 @@ export async function getTotals(db: SQLiteDatabase, from: string, to: string): P
   };
 }
 
-export async function getExpenseCategories(db: SQLiteDatabase, from: string, to: string) {
+export async function getCategoryTotals(db: SQLiteDatabase, type: EntryType, from: string, to: string) {
   return db.getAllAsync<CategoryTotal>(`
     SELECT t.category_id, c.name AS category_name, SUM(t.amount_cents) AS amount_cents
     FROM transactions t JOIN categories c ON c.id = t.category_id
-    WHERE t.type = 'expense' AND t.entry_date >= ? AND t.entry_date < ?
+    WHERE t.type = ? AND t.entry_date >= ? AND t.entry_date < ?
     GROUP BY t.category_id ORDER BY amount_cents DESC, c.name
-  `, from, to);
+  `, type, from, to);
+}
+
+export function getExpenseCategories(db: SQLiteDatabase, from: string, to: string) {
+  return getCategoryTotals(db, 'expense', from, to);
+}
+
+export async function getCategoryDailyExpenses(db: SQLiteDatabase, categoryId: string, endDate: string): Promise<DailyTotal[]> {
+  if (!isValidDate(endDate)) throw new Error('请输入有效日期');
+  const from = addDays(endDate, -29);
+  const to = addDays(endDate, 1);
+  const rows = await db.getAllAsync<{ entry_date: string; amount_cents: number }>(`
+    SELECT entry_date, SUM(amount_cents) AS amount_cents
+    FROM transactions
+    WHERE type = 'expense' AND category_id = ? AND entry_date >= ? AND entry_date < ?
+    GROUP BY entry_date
+  `, categoryId, from, to);
+  const byDate = new Map(rows.map((row) => [row.entry_date, row.amount_cents]));
+  return Array.from({ length: 30 }, (_, index) => {
+    const date = addDays(from, index);
+    return { date, amount_cents: byDate.get(date) ?? 0 };
+  });
 }
 
 export async function getYearMonths(db: SQLiteDatabase, year: number): Promise<MonthTotal[]> {

@@ -69,6 +69,14 @@ async function main() {
   assert.deepEqual((await ledger.getExpenseCategories(db, '2026-09-01', '2026-10-01')).map(({ category_name, amount_cents }) => [category_name, amount_cents]), [
     ['租房', 20000], ['吃喝', 3000], ['打车', 1500],
   ]);
+  assert.deepEqual((await ledger.getCategoryTotals(db, 'income', '2026-09-01', '2026-10-01')).map(({ category_name, amount_cents }) => [category_name, amount_cents]), [
+    ['工资', 100000],
+  ]);
+  const foodTrend = await ledger.getCategoryDailyExpenses(db, categoryId('expense', '吃喝'), '2026-09-30');
+  assert.equal(foodTrend.length, 30);
+  assert.deepEqual(foodTrend[0], { date: '2026-09-01', amount_cents: 0 });
+  assert.deepEqual(foodTrend[1], { date: '2026-09-02', amount_cents: 3000 });
+  assert.deepEqual(foodTrend[29], { date: '2026-09-30', amount_cents: 0 });
   const months = await ledger.getYearMonths(db, 2026);
   assert.equal(months.length, 12);
   assert.deepEqual(months[8], { month: '2026-09', income_cents: 100000, expense_cents: 24500 });
@@ -88,6 +96,8 @@ async function main() {
   await totals('2026-09-01', '2026-10-01', 100000, 23000);
 
   await ledger.saveEntry(db, { type: 'expense', amount_cents: 100, entry_date: '2027-01-01', category_id: categoryId('expense', '吃喝'), note: '' });
+  const crossYearTrend = await ledger.getCategoryDailyExpenses(db, categoryId('expense', '吃喝'), '2027-01-01');
+  assert.deepEqual(crossYearTrend[29], { date: '2027-01-01', amount_cents: 100 });
   await totals('2026-01-01', '2027-01-01', 150000, 28000);
   await totals('2027-01-01', '2028-01-01', 0, 100);
   assert.equal(ledger.parseMoney('30.01'), 3001);
