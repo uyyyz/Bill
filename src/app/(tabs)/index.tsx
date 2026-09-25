@@ -3,6 +3,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DateCalendar } from '@/components/date-calendar';
 import { EmptyState, Page, PageHeading, PrimaryButton } from '@/components/ledger-ui';
 import { palette } from '@/constants/ledger-theme';
 import { addDays, formatMoney, getTotals, LedgerEntry, listEntriesByDate, today, Totals } from '@/data/ledger';
@@ -14,6 +15,7 @@ export default function LedgerScreen() {
   const [totals, setTotals] = useState<Totals>({ income_cents: 0, expense_cents: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -33,9 +35,11 @@ export default function LedgerScreen() {
     <Page>
       <PageHeading eyebrow="我的日常账本" title={isToday ? '今天，记一笔' : `${month}月${day}日的账本`} description="把每一笔收支记清楚，生活更有数。" />
       <View style={styles.dateNav}>
-        <Pressable accessibilityRole="button" onPress={() => setDate(addDays(date, -1))} style={styles.dateButton}><Text style={styles.dateButtonText}>‹</Text></Pressable>
-        <Text style={styles.dateText}>{year}年{month}月{day}日</Text>
-        <Pressable accessibilityRole="button" onPress={() => setDate(addDays(date, 1))} style={styles.dateButton}><Text style={styles.dateButtonText}>›</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="前一天" onPress={() => setDate(addDays(date, -1))} style={styles.dateButton}><Text style={styles.dateButtonText}>‹</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`选择日期，当前${year}年${month}月${day}日`} onPress={() => setCalendarOpen(true)} style={styles.dateTrigger}>
+          <Text style={styles.dateText}>{year}年{month}月{day}日 ▾</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="后一天" onPress={() => setDate(addDays(date, 1))} style={styles.dateButton}><Text style={styles.dateButtonText}>›</Text></Pressable>
         {!isToday && <Pressable accessibilityRole="button" onPress={() => setDate(today())} style={styles.todayButton}><Text style={styles.todayText}>今天</Text></Pressable>}
       </View>
       {loading ? <ActivityIndicator color={palette.primary} /> : error ? <Text style={styles.error}>{error}</Text> : <>
@@ -67,6 +71,7 @@ export default function LedgerScreen() {
           </View>}
       </>}
       <PrimaryButton title="＋ 记一笔" onPress={() => router.push({ pathname: '/record', params: { date } })} />
+      {calendarOpen && <DateCalendar date={date} onSelect={setDate} onClose={() => setCalendarOpen(false)} />}
     </Page>
   );
 }
@@ -75,6 +80,7 @@ const styles = StyleSheet.create({
   dateNav: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dateButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.primarySoft, alignItems: 'center', justifyContent: 'center' },
   dateButtonText: { color: palette.primary, fontSize: 26, fontWeight: '700' },
+  dateTrigger: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 2 },
   dateText: { color: palette.ink, fontSize: 15, fontWeight: '700' },
   todayButton: { marginLeft: 'auto', padding: 7 },
   todayText: { color: palette.primary, fontSize: 13, fontWeight: '700' },

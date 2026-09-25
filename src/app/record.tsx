@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DateCalendar } from '@/components/date-calendar';
 import { PrimaryButton } from '@/components/ledger-ui';
 import { palette } from '@/constants/ledger-theme';
 import { addDays, Category, deleteEntry, EntryType, getEntry, listCategories, parseMoney, saveEntry, today } from '@/data/ledger';
@@ -21,6 +22,7 @@ export default function RecordScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -104,10 +106,12 @@ export default function RecordScreen() {
             <Text style={styles.label}>日期</Text>
             <View style={styles.dateRow}>
               <Pressable accessibilityRole="button" accessibilityLabel="前一天" onPress={() => setDate(addDays(date, -1))} style={styles.dateButton}><Text style={styles.dateButtonText}>‹</Text></Pressable>
-              <TextInput style={styles.dateInput} value={date} onChangeText={setDate} placeholder="年-月-日" keyboardType="numbers-and-punctuation" accessibilityLabel="日期" />
+              <Pressable accessibilityRole="button" accessibilityLabel={`选择日期，当前${date}`} onPress={() => setCalendarOpen(true)} style={styles.dateInput}>
+                <Text style={styles.dateInputText}>{date} ▾</Text>
+              </Pressable>
               <Pressable accessibilityRole="button" accessibilityLabel="后一天" onPress={() => setDate(addDays(date, 1))} style={styles.dateButton}><Text style={styles.dateButtonText}>›</Text></Pressable>
             </View>
-            <Text style={styles.hint}>格式：2026-09-25；也可以点两侧切换日期</Text>
+            <Text style={styles.hint}>点击日期打开日历，或点两侧切换一天</Text>
           </View>
 
           <View style={styles.field}>
@@ -132,6 +136,7 @@ export default function RecordScreen() {
           {params.id ? <Pressable accessibilityRole="button" onPress={confirmDelete} style={styles.deleteButton}><Text style={styles.deleteText}>删除这笔记录</Text></Pressable> : null}
         </>}
       </ScrollView>
+      {calendarOpen && <DateCalendar date={date} onSelect={setDate} onClose={() => setCalendarOpen(false)} />}
     </SafeAreaView>
   );
 }
@@ -152,7 +157,8 @@ const styles = StyleSheet.create({
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dateButton: { backgroundColor: palette.primarySoft, width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   dateButtonText: { color: palette.primary, fontSize: 26, fontWeight: '700' },
-  dateInput: { flex: 1, textAlign: 'center', color: palette.ink, fontSize: 16, fontWeight: '600', borderBottomWidth: 1, borderBottomColor: palette.line, minHeight: 42 },
+  dateInput: { flex: 1, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: palette.line, minHeight: 42 },
+  dateInputText: { color: palette.ink, fontSize: 16, fontWeight: '600' },
   hint: { color: palette.muted, fontSize: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderColor: palette.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 10 },

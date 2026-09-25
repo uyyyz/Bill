@@ -1,6 +1,6 @@
 # 牢大账本
 
-基于 Expo SDK 57、React Native 和 SQLite 的中文本地记账应用。可记录每日收入与支出、管理分类，并查看月度及年度统计。数据只保存在设备本机；正式 Android 构建关闭系统自动备份。
+基于 Expo SDK 57、React Native 和 SQLite 的中文本地记账应用。可记录每日收入与支出、管理分类，并查看月度及年度统计。点击账本或记账页的日期可从日历快速选择。数据只保存在设备本机；正式 Android 构建关闭系统自动备份。
 
 ## 开发
 
@@ -25,7 +25,7 @@ npx.cmd tsc --noEmit
 
 ## 构建 Android APK
 
-应用显示名为“牢大账本”，应用标识为 `com.personal.ledgerapp`，版本为 1.0.0。`eas.json` 的 `preview` 配置生成可直接安装的 APK。首次构建需要先登录 Expo 账号：
+应用显示名为“牢大账本”，应用标识为 `com.personal.ledgerapp`，版本为 1.0.1。`eas.json` 的 `preview` 配置生成可直接安装的 APK。首次构建需要先登录 Expo 账号：
 
 ```powershell
 npx.cmd eas-cli@latest login
