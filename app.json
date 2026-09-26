@@ -2,7 +2,7 @@
   "expo": {
     "name": "牢大账本",
     "slug": "ledger-app",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ledgerapp",
@@ -12,7 +12,7 @@
     },
     "android": {
       "package": "com.personal.ledgerapp",
-      "versionCode": 2,
+      "versionCode": 3,
       "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#276B54",

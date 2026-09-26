@@ -25,7 +25,7 @@ npx.cmd tsc --noEmit
 
 ## 构建 Android APK
 
-应用显示名为“牢大账本”，应用标识为 `com.personal.ledgerapp`，版本为 1.0.1。`eas.json` 的 `preview` 配置生成可直接安装的 APK。首次构建需要先登录 Expo 账号：
+应用显示名为“牢大账本”，应用标识为 `com.personal.ledgerapp`，版本为 1.0.2。`eas.json` 的 `preview` 配置生成可直接安装的 APK。首次构建需要先登录 Expo 账号：
 
 ```powershell
 npx.cmd eas-cli@latest login
