@@ -1,19 +1,30 @@
 # 牢大账本
 
-基于 Expo SDK 57、React Native 和 SQLite 的中文本地记账应用。可记录每日收入与支出、管理分类，并查看月度及年度统计。记账时可从相册选取或拍摄最多 5 张照片，作为本地档案；编辑记录可查看、移除或补充照片。月统计可按收入、支出分类查看条形明细或饼图；点击任一分类可查看近 30 天的每日收支折线图。点击统计期间可直接选择月份或年份，点击账本或记账页的日期可从日历快速选择。数据只保存在设备本机；正式 Android 构建关闭系统自动备份。
+基于 Expo、React Native 和 SQLite 的本地记账应用，支持 Android。
 
-## 开发
+## 功能
 
-在工程目录安装依赖并启动 Expo：
+- 记录收入和支出，自定义分类；可从相册选择或拍摄最多 5 张照片，留存借还款等凭证。
+- 点击日期打开日历，快速查看或补记指定日期的账目。
+- 按月、按年查看统计；月统计支持收入与支出分类、条形图与饼图切换，点击分类可查看近 30 天的收支折线图。
+- 账目和照片仅保存在本机；Android 自动备份已关闭。
+
+## 下载 Android APK
+
+[下载牢大账本 1.0.2 APK](https://expo.dev/artifacts/eas/boaaogaG26UyqIx5JXHHlbfKwSi4dwzLbXxqSA08AYw.apk) · [查看 EAS 构建记录](https://expo.dev/accounts/yuzu_ki/projects/ledger-app/builds/9791d2d7-0a3b-45fc-9e39-f24ef430db3e)
+
+包名：`com.personal.ledgerapp`。Expo EAS 标示此构建产物保留至 **2026-10-10 04:04 UTC**；下载链接过期后需要重新构建。
+
+## 本地开发
+
+在本工程目录运行：
 
 ```powershell
 npm install
 npx.cmd expo start
 ```
 
-在 Expo 终端按 `a` 打开 Android 模拟器。Expo Go 中的预览数据与正式 APK 的数据相互独立。
-
-## 验证
+Expo Go 中的预览数据与正式 APK 的数据相互独立。运行检查：
 
 ```powershell
 node scripts/verify-ledger.cjs
@@ -21,17 +32,9 @@ npx.cmd expo lint
 npx.cmd tsc --noEmit
 ```
 
-`verify-ledger.cjs` 使用内存数据库核对计划中的六笔样例、跨年边界、照片关联、分类历史保留和清空逻辑，不修改设备上的账本。
-
-## 构建 Android APK
-
-应用显示名为“牢大账本”，应用标识为 `com.personal.ledgerapp`，版本为 1.0.2。`eas.json` 的 `preview` 配置生成可直接安装的 APK。首次构建需要先登录 Expo 账号：
+使用 Expo EAS 云端构建 APK：
 
 ```powershell
 npx.cmd eas-cli@latest login
 npx.cmd eas-cli@latest build --platform android --profile preview
 ```
-
-首次构建时按 EAS 提示关联项目并生成 Android 签名密钥。下载 APK 后还需在真机核对记账、统计、重启和清空流程。
-
-详细功能规则和验收步骤见 [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md)。
