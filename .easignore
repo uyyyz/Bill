@@ -1,0 +1,35 @@
+# Dependencies and generated files
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+example
+/ios
+/android
+
+# Local notes and private build inputs are not part of the APK.
+/DEVELOPMENT_PLAN.md
+/.vscode/
+/.env*
+/credentials.json
+/google-services.json
+/GoogleService-Info.plist
+*.keystore
+*.db
+*.sqlite
